@@ -17,7 +17,34 @@
 
 
 
-static  const  char *dirpath = "/home/dicksen/Downloads";
+static  const  char *dirpath = "/home/dicksen/Downloads"; 
+char *log_path = "/home/vyra/SinSeiFS.log"; //Path file log
+
+void writeLog(char *string, char *path, int check)
+{
+    char res[1024];
+    char flag[10];
+
+    FILE *f;
+
+    if(check == 0)
+    {
+        strcpy(flag, "WARNING");
+    }
+    else
+    {
+        strcpy(flag, "INFO");
+    }
+
+    time_t t = time(NULL);
+    struct tm tm = *localtime(&t);
+
+    snprintf(res, "%s::%02d%02d%04d-%02d:%02d:%02d::%s::%s", flag, tm.tm_mday, tm.tm_mon, tm.tm_year, tm.tm_hour, tm.tm_min, tm.tm_sec, string, path);
+
+    f = fopen("/home/vyra/SinSeiFS.log", "a+");
+    fprintf(f, "%s\n", res);
+    fclose(f);
+}
 
 //enkripsi atbash
 void atBash_encrypt(char *path_file)
