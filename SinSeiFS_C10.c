@@ -45,8 +45,8 @@ void writeLog(char *string, char *path, int check)
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
 
-    snprintf(res, "%s::%02d%02d%04d-%02d:%02d:%02d::%s::%s", flag, tm.tm_mday, tm.tm_mon, tm.tm_year, tm.tm_hour, tm.tm_min, tm.tm_sec, string, path);
-
+    sprintf(res, "%s::%.2d%.2d%.4d-%.2d:%.2d:%.2d::%s::%s", flag, tm.tm_mday, tm.tm_mon, tm.tm_year, tm.tm_hour, tm.tm_min, tm.tm_sec, string, path);
+	
     f = fopen(log_path, "a+");
     fprintf(f, "%s\n", res);
     fclose(f);
