@@ -2,6 +2,7 @@
 #include <fuse.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -16,10 +17,14 @@
 #include <time.h>
 
 
-
 static const char *dirPath = "/home/dicksen/Downloads";
 static const char *log_path = "/home/dicksen/SinSeiFS.log"; //Path file log
 static const char *AtoZ = "AtoZ_";
+
+// gcc -Wall `pkg-config fuse --cflags` modul4.c -o modul4 `pkg-config fuse --libs`
+// ./modul4  shift4/
+// fusermount -u shift4/
+
 
 void writeLog(char *string, char *path, int check)
 {
@@ -42,10 +47,11 @@ void writeLog(char *string, char *path, int check)
 
     snprintf(res, "%s::%02d%02d%04d-%02d:%02d:%02d::%s::%s", flag, tm.tm_mday, tm.tm_mon, tm.tm_year, tm.tm_hour, tm.tm_min, tm.tm_sec, string, path);
 
-    f = fopen("/home/dicksen/SinSeiFS.log", "a+");
+    f = fopen(log_path, "a+");
     fprintf(f, "%s\n", res);
     fclose(f);
 }
+
 /*
 Mencari indeks '.' , '/'
 type = 0    -> mencari indeks melakukan split berdasakan ada tidaknya '.'
@@ -206,6 +212,347 @@ void dekripsi2(char *dir)
 }
 
 
+/*
+    get name and extension
+*/
+
+void getDetail(const char *file, char *name, char *ext) {
+    int index = 0;
+    int i = 0;
+
+    while(file[i]) {
+        if (file[i] == '.') 
+            break;
+        
+        name[index++] = file[i];
+        i++;
+    }
+
+    name[index] = '\0';
+
+    index = 0;
+    while (file[i]) 
+    {
+        ext[index++] = file[i];
+        i++;
+    }
+
+    ext[index] = '\0';
+}
+
+/*
+    if isRX
+*/
+
+bool isRX(char *string)
+{
+    for(int i = 0; i < 3; i++)
+    {
+        if(string[0] == "R" || string[1] == "X" || string[2] == "_")
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/*
+    ROT13
+*/
+
+void encROT13(char *string) {
+    for (int i = 0; string[i]; i++) 
+    {
+        if ('A' <= string[i] && string[i] <= 'Z') 
+            string[i] = ((string[i] - 'A' + 13 ) % 26 ) + 'A';
+        else if ('a' <= string[i] && string[i] <= 'z') 
+            string[i] = ((string[i] - 'a' + 13 ) % 26 ) + 'a';
+    }
+}
+
+void decROT13(char *string)
+{
+    for (int i = 0; string[i]; i++) 
+    {
+        if ('A' <= string[i] && string[i] <= 'Z') 
+            string[i] = ((string[i] - 'A' - 13) % 26) + 'A';
+        else if ('a' <= string[i] && string[i] <= 'z') 
+            string[i] = ((string[i] - 'a' - 13) % 26) + 'a';
+    }
+}
+
+/*
+    VIGINERE
+*/
+
+void encVig(char *string) {
+    char key[] = "SISOP";    
+    
+    // Encode Viginere Cipher
+    for (int i = 0; string[i]; i++) 
+    {
+        if ('A' <= string[i] && string[i] <= 'Z') 
+            string[i] = ((string[i]-'A'+(key[i%((sizeof(key)-1))]-'A'))%26)+'A';
+        else if ('a' <= string[i] && string[i] <= 'z') 
+            string[i] = ((string[i]-'a'+(key[i%((sizeof(key)-1))]-'A'))%26)+'a';
+    }
+}
+
+void decVig(char *string)
+{
+    char key[] = "SISOP";
+    // Decode Viginere Cipher
+    for (int i = 0; string[i]; i++) 
+    {
+        if ('A' <= string[i] && string[i] <= 'Z') 
+            string[i] = ((string[i]-'A'-(key[i%((sizeof(key)-1))]-'A')+26)%26)+'A';
+        else if ('a' <= string[i] && string[i] <= 'z') 
+            string[i] = ((string[i]-'a'-(key[i%((sizeof(key)-1))]-'A')+26)%26)+'a';
+    }
+}
+
+/*
+    FOLDER RX_
+*/
+
+int mkdir_folderRX(const char *path, const char* name, int m)
+{
+    char enc_name[512];
+    strcpy(enc_name, name);
+
+    if(m == 0) //encode
+    {
+        atBash_endecrypt(path, 0);
+        encROT13(enc_name);
+    }
+    else
+    {
+        decROT13(enc_name);
+        atBash_endecrypt(path, 1);
+    }
+
+    char fpath[1024], tpath[1024];
+    sprintf(fpath, "%s/%s", path, name);
+    sprintf(tpath, "%s/%s", path, enc_name);
+
+    int res = rename(fpath, tpath);
+
+    if(res == -1)
+        return -errno;
+
+    return 0;
+} 
+
+int rename_folderRX(const char *path, const char* name, int m)
+{
+    char enc_name[512];
+    strcpy(enc_name, name);
+
+    if(m == 0) //encode
+    {
+        atBash_endecrypt(path, 0);
+        encVig(enc_name);
+    }
+    else
+    {
+        decVig(enc_name);
+        atBash_endecrypt(path, 1);
+    }
+
+    char fpath[1024], tpath[1024];
+    sprintf(fpath, "%s/%s", path, name);
+    sprintf(tpath, "%s/%s", path, enc_name);
+
+    int res = rename(fpath, tpath);
+
+    if(res == -1)
+        return -errno;
+
+    return 0;
+} 
+
+/*
+    FILE RX_
+*/
+
+int mkdir_fileRX(char *path, char *name, int m)
+{
+    char file[1024], ext[64];
+    getDetail(name, file, ext);
+
+    if(m == 0)
+    {
+        //atbash
+        encROT13(file);
+    }
+    else
+    {
+        decROT13(file);
+        //atbash
+    }
+
+    char fpath[1024], tpath[1024];
+    sprintf(fpath, "%s/%s", path, name);
+    sprintf(tpath, "%s/%s", path, file);
+
+    int res = rename(fpath, tpath);
+
+    if(res == -1)
+        return -errno;
+
+    return 0; 
+}
+
+int rename_fileRX(char *path, char *name, int m)
+{
+    char file[1024], ext[64];
+    getDetail(name, file, ext);
+
+    if(m == 0)
+    {
+        //atbash
+        encVig(file);
+    }
+    else
+    {
+        decVig(file);
+        //atbash
+    }
+
+    char fpath[1024], tpath[1024];
+    sprintf(fpath, "%s/%s", path, name);
+    sprintf(tpath, "%s/%s", path, file);
+
+    int res = rename(fpath, tpath);
+
+    if(res == -1)
+        return -errno;
+
+    return 0; 
+}
+
+/*
+    RX_ RECURSIVE
+*/
+
+int mkdir_RXrec(char *path, int check)
+{
+    char p[1024];
+
+    struct dirent *dp;
+    DIR *dir = opendir(path);
+
+    if(!dir) return 0;
+
+    int count = 0;
+
+    while((dp = readdir(dir)) != NULL)
+    {
+        if(strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
+            continue;
+        
+        strcpy(p, path);
+        strcat(p, "/");
+        strcat(p, dp->d_name);
+
+        struct stat path_stat;
+        stat(p, &path_stat);
+
+        if(check == 0) //encrypt
+        {
+            if(!(S_ISREG(path_stat.st_mode)))
+            {
+                count += mkdir_RXrec(p, 0);
+                mkdir_folderRX(path, dp->d_name, 0);
+            }
+            else
+            {
+                if(mkdir_fileRX(path, dp->d_name, 0) == 0)
+                    count++;
+            }
+        }
+        else //decrypt
+        {
+            if(!S_ISREG(path_stat.st_mode))
+            {
+                count += mkdir_RXrec(p, 1);
+                mkdir_folderRX(path, dp->d_name, 1);
+            }
+            else
+            {
+                if(mkdir_fileRX(path, dp->d_name, 1) == 0)
+                    count++;
+            }
+        }
+
+        closedir(dir);
+        return count;
+    }
+}
+
+int rename_RXrec(char *path, int depth, int check)
+{
+    char p[1024];
+
+    struct dirent *dp;
+    DIR *dir = opendir(path);
+
+    if(!dir) return 0;
+
+    int count = 0;
+
+    while((dp = readdir(dir)) != NULL)
+    {
+        if(strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
+            continue;
+        
+        strcpy(p, path);
+        strcat(p, "/");
+        strcat(p, dp->d_name);
+
+        struct stat path_stat;
+        stat(p, &path_stat);
+
+        if(check == 0) //encrypt
+        {
+            if(!S_ISREG(path_stat.st_mode))
+            {
+                if(depth > 1)
+                {
+                    count += rename_RXrec(p, depth - 1, 0);
+                    rename_folderRX(path, dp->d_name, 0);
+                }   
+            }
+            else
+            {
+                if(rename_fileRX(path, dp->d_name, 0) == 0)
+                    count++;
+            }
+        }
+        else //decrypt
+        {
+            if(!S_ISREG(path_stat.st_mode))
+            {
+                if(depth > 1)
+                {
+                    count += rename_RXrec(p, depth - 1, 1);
+                    rename_folderRX(path, dp->d_name, 1);
+                }   
+            }
+            else
+            {
+                if(rename_fileRX(path, dp->d_name, 1) == 0)
+                    count++;
+            }
+        }
+
+        
+        closedir(dir);
+        return count;
+    }
+}
+
 static  int  xmp_getattr(const char *path, struct stat *stbuf)
 {
     int res;
@@ -360,10 +707,45 @@ static int xmp_rename(const char *from, const char *to)
 {
 	int res;
 	char frompath[1000], topath[1000];
+
+    if(strcmp(from, "/") == 0)
+    {
+        from = dirPath;
+        sprintf(frompath, "%%s", from);
+    }
+    else
+    {
+        sprintf(frompath, "%s%s", dirPath, from);
+    }
+
+    if(strcmp(to, "/") == 0)
+    {
+        to = dirPath;
+        sprintf(topath, "%s", to);
+    }
+    else
+    {
+        sprintf(topath, "%s%s", dirPath, to);
+    }
 	
 	char *a = strstr(to, AtoZ);
 	if (a != NULL) atBash_endecrypt(a, 1);
-	
+
+    //folder
+    struct stat path_stat;
+    stat(frompath, &path_stat);
+
+    if(!S_ISREG(path_stat.st_mode))
+    {
+        if(isRX(from) && !isRX(to))
+        {
+            rename_RXrec(frompath, 1000, 1);
+        }
+        else if(!isRX(from) && isRX(to))
+        {
+            rename_RXrec(frompath, 1000, 0);
+        }
+    }
 
 	sprintf(frompath, "%s%s", dirPath, from);
 	sprintf(topath, "%s%s", dirPath, to);
@@ -372,9 +754,9 @@ static int xmp_rename(const char *from, const char *to)
 	if (res == -1) return -errno;
 
     ///Fungsi log disini
-	
-
-	
+	char p[1024];
+    sprintf(p, "%s::%s", frompath, topath);
+    writeLog("RENAME", p, 1);
 
 	return 0;
 }
@@ -638,6 +1020,9 @@ static int xmp_symlink(const char *from, const char *to)
 	res = symlink(frompath, topath);
 	
     ///Tulis log dengan frompath & toPath
+    char p[1024];
+    sprintf(p, "%s::%s", frompath, topath);
+    writeLog("SYMLINK", p, 1);
 	
 	if (res == -1) return -errno;
 	return 0;
@@ -657,6 +1042,9 @@ static int xmp_link(const char *from, const char *to)
 	res = link(frompath, topath);
 	
     ///Tulis log dengan frompath dan topath
+    char p[1024];
+    sprintf(p, "%s::%s", frompath, topath);
+    writeLog("LINK", p, 1);
 
 	if (res == -1) return -errno;
 	return 0;
