@@ -378,6 +378,7 @@ pada fungsi xmp_rename dan xmp_mkdir memanggil fungsi writeLog untuk mencatat lo
 
 ### Soal 3
 **Kendala**
+
 3a. Jika sebuah direktori dibuat dengan awalan “A_is_a_”, maka direktori tersebut akan menjadi sebuah direktori spesial.
 * Bisa dibuat hanya untuk kondisi masuk ke fungsinya saja
 
