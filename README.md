@@ -59,6 +59,7 @@ void writeLog(char *string, char *path, int check)
 **4b** Karena Sin dan Sei suka kerapian maka log yang dibuat akan dibagi menjadi dua level, yaitu INFO dan WARNING.
 ![image](https://user-images.githubusercontent.com/77628684/121803508-3bfe7c00-cc6c-11eb-90ad-41c3204049e1.png)
 * Dalam fungsi write log terdapat kondiisi check==0 yang berguna untuk membedakan warning dengan info.
+
 ![image](https://user-images.githubusercontent.com/77628684/121803670-e70f3580-cc6c-11eb-9755-2e08ebacec6e.png)
 
 **4c** Untuk log level WARNING, digunakan untuk mencatat syscall rmdir dan unlink.
