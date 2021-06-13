@@ -9,12 +9,188 @@
 | 3 | Bill Harit Yafi  | 05111940000114 |
 
 ### Soal 1
-**1a** 
-**1b**
-**1c**
-**1d**
-**1e**
+Pada soal 1, diminta untuk membuat filesystem yang dapat secara otomatis melakukan enkripsi pada direktori yang mengandung "AtoZ_", misalkan "AtoZ_test".
+Ketika sebuah direktori di-rename menjadi direktori ter-encode, maka isi dari direktori tersebut akan di enkripsi dengan enkripsi atBash. Jika direktori tersebut diubah namanya menjadi tidak ter-encode, maka isi dari direktori tersebut akan kembali ke semula. Filesystem ini dapat berjalan secara rekursif, dapat mengubah file maupun direktori didalam direktori yang ter-encode. Berikut adalah kode untuk nomor 1 :
+
+Fungsi untuk membantu jalannya fungsi enkripsi
+```c
+/*
+Mencari indeks '.' , '/'
+type = 0    -> mencari indeks melakukan split berdasakan ada tidaknya '.'
+type = 1    -> mencari indeks '.'
+type = 2    -> mencari indeks '/', dengan tambahan parameter "end"
+*/  
+int index_special(char *path, int type, int end)
+{
+    if(type == 0 || type == 1)
+    {
+    int exist = 0;
+    for(int i = strlen(path)-1; i>=0; i--){
+        if(path[i]== '.'){
+            //Mencari indeks untuk melakukan split berdasarkan
+            //Ada tidaknya '.'
+            if(type == 0){
+                if(exist == 1)return i;
+                else exist = 1;
+            }
+            //Hanya mencari indeks '.' yang pertama ditemukan
+            else if(type == 1){
+                return i;
+            }
+        }
+    }
+    //Jika tidak ditemukan tanda '.'
+    return strlen(path);
+    }
+    else if(type == 2)
+    {
+        for(int i = 0; i<strlen(path); i++){
+            if(path[i] == '/')return i+1;
+        }
+        return end;
+    }
+}
+
+```
+Fungsi enkripsi dan dekripsi atBash
+```c
+//enkripsi dan dekripsi atbash, 0 enkripsi, 1 dekripsi
+void atBash_endecrypt(char *path_file, int type)
+{
+    if(strcmp(path_file, ".") == 0 || strcmp(path_file, "..")== 0)return;
+    
+    int start_index = 0;
+    int end_index = index_special(path_file, 0, 0);
+    if(end_index == strlen(path_file)) end_index = index_special(path_file, 1, 0);
+    if(type == 0){
+        printf("Enkripsi atbash dengan path : %s\n", path_file);
+        start_index = index_special(path_file, 2, 0);
+    }
+    else if(type == 1){
+        printf("Dekripsi atbash dengan path : %s\n", path_file);
+        start_index = index_special(path_file, 2, end_index);
+    }
+
+    for (int i = start_index; i < end_index; i++){
+		if (path_file[i] != '/' && isalpha(path_file[i])){
+			char tmp = path_file[i];
+			if(isupper(path_file[i])) tmp -= 'A';
+			else tmp -= 'a';
+			tmp = 25 - tmp; //Atbash cipher
+			if(isupper(path_file[i])) tmp += 'A';
+			else tmp += 'a';
+			path_file[i] = tmp;
+		}
+	}
+}
+```
+Fungsi enkripsi dan dekripsi secara rekursif
+```c
+void enkripsi2(char *fpath)
+{
+    chdir(fpath);
+	DIR *dp;
+	struct dirent *dir;
+	
+	dp = opendir(".");
+	if(dp == NULL) return;
+	struct stat lol;
+	char dirPath[2000];
+	char filePath[2000];
+	
+    while ((dir = readdir(dp)) != NULL){
+		printf("dirname %s\n", dir->d_name);
+		printf("%s/%s\n", fpath, dir->d_name);
+		if (stat(dir->d_name, &lol) < 0);
+		else if (S_ISDIR(lol.st_mode)){
+			if (strcmp(dir->d_name,".") == 0 || strcmp(dir->d_name,"..") == 0) continue;
+			sprintf(dirPath,"%s/%s",fpath, dir->d_name);
+			enkripsi2(dirPath);
+			printf("dirPath %s\n", dirPath);
+		}
+		else{
+			sprintf(filePath,"%s/%s",fpath,dir->d_name);
+			FILE *input = fopen(filePath, "r");
+			if (input == NULL) return;
+			int bytes_read, count = 0;
+			void *buffer = malloc(1024);
+			while((bytes_read = fread(buffer, 1, 1024, input)) > 0){
+				char newFilePath[1000];
+				sprintf(newFilePath, "%s.%04d", filePath, count);
+				count++;
+				FILE *output = fopen(newFilePath, "w+");
+				if(output == NULL) return;
+				fwrite(buffer, 1, bytes_read, output);
+				fclose(output);
+				memset(buffer, 0, 1024);
+			}
+			fclose(input);
+			printf("filepath %s\n", filePath);
+			remove(filePath);
+		}
+	}
+    closedir(dp);
+}
+
+void dekripsi2(char *dir)
+{
+	chdir(dir);
+	DIR *dp;
+	struct dirent *de;
+	struct stat lol;
+	dp = opendir(".");
+	if (dp == NULL) return;
+	
+	char dirPath[1000];
+	char filePath[1000];
+	
+	while ((de = readdir(dp)) != NULL){
+		if (stat(de->d_name, &lol) < 0);
+		else if (S_ISDIR(lol.st_mode)){
+			if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0) continue;
+			sprintf(dirPath, "%s/%s", dir, de->d_name);
+			dekripsi2(dirPath);
+		}
+		else{
+			sprintf(filePath, "%s/%s", dir, de->d_name);
+			filePath[strlen(filePath) - 5] = '\0';
+			FILE *check = fopen(filePath, "r");
+			if (check != NULL) return;
+			FILE *file = fopen(filePath, "w");
+			int count = 0;
+			char topath[1000];
+			sprintf(topath, "%s.%04d", filePath, count);
+			void *buffer = malloc(1024);
+			while (1){
+				FILE *op = fopen(topath, "rb");
+				if (op == NULL) break;
+				size_t readSize = fread(buffer, 1, 1024, op);
+				fwrite(buffer, 1, readSize, file);
+				fclose(op);
+				remove(topath);
+				count++;
+				sprintf(topath, "%s.%04d", filePath, count);
+			}
+			free(buffer);
+			fclose(file);
+		}
+	}
+	closedir(dp);
+}
+```
+Berikut adalah tankapan layar sebelum enkripsi :
+![Soal 1 bofore-1](https://user-images.githubusercontent.com/65166398/121806251-51c66e00-cc79-11eb-970f-b8d06c04d07c.png)
+
+![soal 1 before-2](https://user-images.githubusercontent.com/65166398/121806284-6b67b580-cc79-11eb-87e9-9b93528c420c.png)
+
+Berikut adalah tankapan layar setelah enkripsi :
+![Soal 1 after-1](https://user-images.githubusercontent.com/65166398/121806314-84706680-cc79-11eb-9be6-2ec6043e373f.png)
+
+![Soal 1 after-2](https://user-images.githubusercontent.com/65166398/121806315-863a2a00-cc79-11eb-9d67-3615f81ad3b6.png)
+
 **Kendala**
+1. Melakukan rekursi dalam fungsi agar dapat mengakses seluruh file dan direktori.
+2. Mengintegrasikan fungsi enkripsi dan dekripsi pada fungsi-fungsi "xmp_".
 ### Soal 2
 **2a**
 **2b**
