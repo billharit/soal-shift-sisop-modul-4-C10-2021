@@ -20,11 +20,11 @@
 static const char *dirPath = "/home/dicksen/Downloads";
 static const char *log_path = "/home/dicksen/SinSeiFS.log"; //Path file log
 static const char *AtoZ = "AtoZ_";
-
-// gcc -Wall `pkg-config fuse --cflags` modul4.c -o modul4 `pkg-config fuse --libs`
-// ./modul4  shift4/
-// fusermount -u shift4/
-
+/*
+ gcc -Wall `pkg-config fuse --cflags` modul4.c -o modul4 `pkg-config fuse --libs`
+ ./modul4  shift4/
+ fusermount -u shift4/
+*/
 
 void writeLog(char *string, char *path, int check)
 {
