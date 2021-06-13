@@ -192,12 +192,190 @@ Berikut adalah tankapan layar setelah enkripsi :
 1. Melakukan rekursi dalam fungsi agar dapat mengakses seluruh file dan direktori.
 2. Mengintegrasikan fungsi enkripsi dan dekripsi pada fungsi-fungsi fuse operations.
 ### Soal 2
-**2a**
-**2b**
-**2c**
-**2d**
-**2e**
+Pada soal nomor 2 diminta untuk membuat metode enkripsi tambahan saat melakukan pembuatan direktori yang diawali dengan "RX_" maka dilakukan metode tambahan ROT13 dan saat melakukan rename pada sebuah direktori akan dilakukan metode tambahan Viginere
+
+Fungsi untuk encrypt dan decrypt rot13
+
+```c
+void encROT13(char *string) {
+    for (int i = 0; string[i]; i++) 
+    {
+        if ('A' <= string[i] && string[i] <= 'Z') 
+            string[i] = ((string[i] - 'A' + 13 ) % 26 ) + 'A';
+        else if ('a' <= string[i] && string[i] <= 'z') 
+            string[i] = ((string[i] - 'a' + 13 ) % 26 ) + 'a';
+    }
+}
+
+void decROT13(char *string)
+{
+    for (int i = 0; string[i]; i++) 
+    {
+        if ('A' <= string[i] && string[i] <= 'Z') 
+            string[i] = ((string[i] - 'A' - 13) % 26) + 'A';
+        else if ('a' <= string[i] && string[i] <= 'z') 
+            string[i] = ((string[i] - 'a' - 13) % 26) + 'a';
+    }
+}
+```
+
+encrypt dan decrypt viginere
+
+```c
+void encVig(char *string) {
+    char key[] = "SISOP";    
+    
+    // Encode Viginere Cipher
+    for (int i = 0; string[i]; i++) 
+    {
+        if ('A' <= string[i] && string[i] <= 'Z') 
+            string[i] = ((string[i]-'A'+(key[i%((sizeof(key)-1))]-'A'))%26)+'A';
+        else if ('a' <= string[i] && string[i] <= 'z') 
+            string[i] = ((string[i]-'a'+(key[i%((sizeof(key)-1))]-'A'))%26)+'a';
+    }
+}
+
+void decVig(char *string)
+{
+    char key[] = "SISOP";
+    // Decode Viginere Cipher
+    for (int i = 0; string[i]; i++) 
+    {
+        if ('A' <= string[i] && string[i] <= 'Z') 
+            string[i] = ((string[i]-'A'-(key[i%((sizeof(key)-1))]-'A')+26)%26)+'A';
+        else if ('a' <= string[i] && string[i] <= 'z') 
+            string[i] = ((string[i]-'a'-(key[i%((sizeof(key)-1))]-'A')+26)%26)+'a';
+    }
+}
+```
+
+Fungsi untuk melakukan enkripsi dan dekripsi secara rekursif
+
+```c
+int mkdir_RXrec(char *path, int check)
+{
+    char p[1024];
+
+    struct dirent *dp;
+    DIR *dir = opendir(path);
+
+    if(!dir) return 0;
+
+    int count = 0;
+
+    while((dp = readdir(dir)) != NULL)
+    {
+        if(strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
+            continue;
+        
+        strcpy(p, path);
+        strcat(p, "/");
+        strcat(p, dp->d_name);
+
+        struct stat path_stat;
+        stat(p, &path_stat);
+
+        if(check == 0) //encrypt
+        {
+            if(!(S_ISREG(path_stat.st_mode)))
+            {
+                count += mkdir_RXrec(p, 0);
+                mkdir_folderRX(path, dp->d_name, 0);
+            }
+            else
+            {
+                if(mkdir_fileRX(path, dp->d_name, 0) == 0)
+                    count++;
+            }
+        }
+        else //decrypt
+        {
+            if(!S_ISREG(path_stat.st_mode))
+            {
+                count += mkdir_RXrec(p, 1);
+                mkdir_folderRX(path, dp->d_name, 1);
+            }
+            else
+            {
+                if(mkdir_fileRX(path, dp->d_name, 1) == 0)
+                    count++;
+            }
+        }
+
+        closedir(dir);
+        return count;
+    }
+}
+
+int rename_RXrec(char *path, int depth, int check)
+{
+    char p[1024];
+
+    struct dirent *dp;
+    DIR *dir = opendir(path);
+
+    if(!dir) return 0;
+
+    int count = 0;
+
+    while((dp = readdir(dir)) != NULL)
+    {
+        if(strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
+            continue;
+        
+        strcpy(p, path);
+        strcat(p, "/");
+        strcat(p, dp->d_name);
+
+        struct stat path_stat;
+        stat(p, &path_stat);
+
+        if(check == 0) //encrypt
+        {
+            if(!S_ISREG(path_stat.st_mode))
+            {
+                if(depth > 1)
+                {
+                    count += rename_RXrec(p, depth - 1, 0);
+                    rename_folderRX(path, dp->d_name, 0);
+                }   
+            }
+            else
+            {
+                if(rename_fileRX(path, dp->d_name, 0) == 0)
+                    count++;
+            }
+        }
+        else //decrypt
+        {
+            if(!S_ISREG(path_stat.st_mode))
+            {
+                if(depth > 1)
+                {
+                    count += rename_RXrec(p, depth - 1, 1);
+                    rename_folderRX(path, dp->d_name, 1);
+                }   
+            }
+            else
+            {
+                if(rename_fileRX(path, dp->d_name, 1) == 0)
+                    count++;
+            }
+        }
+
+        
+        closedir(dir);
+        return count;
+    }
+}
+```
+
+pada fungsi xmp_rename dan xmp_mkdir memanggil fungsi writeLog untuk mencatat log
+
 **Kendala**
+* fungsi dapat mendeteksi "RX_" tetapi belum bisa mengganti nama folder
+* ubuntu tidak bisa nyala, tulisannya "BUG : soft lockup - CPU#0 stuck ..."
+
 ### Soal 3
 **Kendala**
 ### Soal 4
