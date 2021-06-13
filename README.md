@@ -190,7 +190,7 @@ Berikut adalah tankapan layar setelah enkripsi :
 
 **Kendala**
 1. Melakukan rekursi dalam fungsi agar dapat mengakses seluruh file dan direktori.
-2. Mengintegrasikan fungsi enkripsi dan dekripsi pada fungsi-fungsi "xmp_".
+2. Mengintegrasikan fungsi enkripsi dan dekripsi pada fungsi-fungsi fuse operations.
 ### Soal 2
 **2a**
 **2b**
